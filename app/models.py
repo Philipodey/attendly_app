@@ -9,7 +9,7 @@ class User(Base):
     email = Column(String, unique=True, nullable=False)
     password_hash = Column(String, nullable=False)
     role = Column(String, nullable=False)
-    face_embedding = Column(String, nullable=False)
+    face_embedding = Column(String, nullable=True)
     matric_number = Column(String, nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
 

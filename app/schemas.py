@@ -11,7 +11,6 @@ class UserBase(BaseModel):
     email: EmailStr
     role: str
     matric_number: Optional[str] = None
-    face_embedding: Optional[str] = None  # Optional for students during registration
 
 
 class UserCreate(UserBase):

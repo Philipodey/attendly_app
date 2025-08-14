@@ -1,7 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Form, File, UploadFile
 from sqlalchemy.orm import Session
+from pydantic import EmailStr
+import numpy as np
+import cv2
+
 from .. import models, auth, schemas
 from ..database import SessionLocal
+from ..utils.face_recognition import generate_face_embedding  # Custom function
 
 router = APIRouter()
 
@@ -12,30 +17,65 @@ def get_db():
     finally:
         db.close()
 
+
 @router.post("/register", response_model=schemas.Token)
-def register(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
-    # Check if email exists
-    if db.query(models.User).filter(models.User.email == user_data.email).first():
+def register(
+    full_name: str = Form(...),
+    email: EmailStr = Form(...),
+    password: str = Form(...),
+    role: str = Form(...),
+    matric_number: str = Form(None),
+    face_image: UploadFile = File(None),  # Optional
+    db: Session = Depends(get_db)
+):
+    role = role.lower().strip()
+
+    # --- Check duplicates ---
+    if db.query(models.User).filter(models.User.email == email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    # Check if matric_number exists (only if provided)
-    if user_data.matric_number and db.query(models.User).filter(models.User.matric_number == user_data.matric_number).first():
+    if matric_number and db.query(models.User).filter(models.User.matric_number == matric_number).first():
         raise HTTPException(status_code=400, detail="Matric number already registered")
 
-    hashed_pw = auth.hash_password(user_data.password)
+    # --- Hash password ---
+    hashed_pw = auth.hash_password(password)
 
+    embedding_str = None
+
+    if role in ["student", "employee"]:
+        if not face_image:
+            raise HTTPException(status_code=400, detail="Face image is required for students and employees")
+
+        # Read image
+        image_bytes = face_image.file.read()
+        np_image = np.frombuffer(image_bytes, np.uint8)
+        img = cv2.imdecode(np_image, cv2.IMREAD_COLOR)
+
+        if img is None:
+            raise HTTPException(status_code=400, detail="Invalid image uploaded")
+
+        # Generate embedding
+        try:
+            embedding_str = generate_face_embedding(img)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    else:
+        embedding_str = "NO FACE"
+    # --- Save user ---
     new_user = models.User(
-        full_name=user_data.full_name,
-        email=user_data.email,
+        full_name=full_name,
+        email=email,
         password_hash=hashed_pw,
-        role=user_data.role,
-        matric_number=user_data.matric_number,
-        face_embedding=user_data.face_embedding
+        role=role,
+        matric_number=matric_number,
+        face_embedding=embedding_str
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
 
+    # Token
     access_token = auth.create_access_token(data={"sub": str(new_user.user_id)})
 
     return {

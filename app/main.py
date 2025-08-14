@@ -5,10 +5,8 @@ app = FastAPI()
 
 # Include routes
 app.include_router(attendance_routes.router, prefix="/attendance", tags=["Attendance"])
-app.include_router(auth_routes.router, prefix="/register", tags=["register"])
-app.include_router(auth_routes.router, prefix="/login", tags=["login"])
-app.include_router(auth_routes.router, prefix="/create-session", tags=["create_session"])
-
+app.include_router(auth_routes.router, prefix="/auth", tags=["Authentication"])
+app.include_router(session_routes.router, prefix="/sessions", tags=["Sessions"])
 
 @app.get("/")
 def root():
