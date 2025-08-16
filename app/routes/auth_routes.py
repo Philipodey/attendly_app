@@ -76,12 +76,19 @@ def register(
     db.refresh(new_user)
 
     # Token
-    access_token = auth.create_access_token(data={"sub": str(new_user.user_id)})
+    access_token = auth.create_access_token(data={
+        "sub": str(new_user.user_id),
+        "user_id": new_user.user_id,
+        "role": new_user.role
+
+        })
 
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "user": new_user
+        "user": new_user,
+        "user_id": new_user.user_id,
+        "role":new_user.role
     }
 
 @router.post("/login", response_model=schemas.Token)
@@ -90,9 +97,16 @@ def login(login_data: schemas.UserLogin, db: Session = Depends(get_db)):
     if not user or not auth.verify_password(login_data.password, user.password_hash):
         raise HTTPException(status_code=400, detail="Invalid email or password")
 
-    access_token = auth.create_access_token(data={"sub": str(user.user_id)})
+    access_token = auth.create_access_token(data={
+        "sub": str(user.user_id),
+        "user_id": user.user_id,
+        "role": user.role
+    })
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "user": user
+        "user": user,
+        "user_id": user.user_id,       # ✅ include this
+        "role": user.role  
+
     }
